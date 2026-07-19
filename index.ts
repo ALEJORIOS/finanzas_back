@@ -18,12 +18,8 @@ app.get('', (req, res) => {
 
 app.get('/record', async(req, res) => {
     const pool = new Pool({
-        host: process.env.PGHOST,
-        port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
-        user: process.env.PGUSER,
-        password: process.env.PGPASSWORD,
-        database: process.env.PGDATABASE
-    });
+        connectionString: process.env.DATABASE_URL,
+    })
 
     try {
         const queryRes = await pool.query(
@@ -41,12 +37,8 @@ app.post('/insert', async(req, res) => {
     try {        
         const {date, concept, category, description, value} = req.body
         const pool = new Pool({
-            host: process.env.PGHOST,
-            port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
-            user:process.env.PGUSER,
-            password:process.env.PGPASSWORD,
-            database: process.env.PGDATABASE
-        });        
+            connectionString: process.env.DATABASE_URL,
+        })      
         
         const queryRes = await pool.query('INSERT INTO "record" (date, concept, category, description, value, create_time) VALUES($1, $2, $3, $4, $5, $6) RETURNING id', 
             [date, concept, category, description, value, 'NOW()']);
@@ -60,12 +52,8 @@ app.post('/insert', async(req, res) => {
 
 app.get('/download', async(req, res) => {
     const pool = new Pool({
-        host: process.env.PGHOST,
-        port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
-        user: process.env.PGUSER,
-        password: process.env.PGPASSWORD,
-        database: process.env.PGDATABASE
-    });
+        connectionString: process.env.DATABASE_URL,
+    })
 
     try {
         const queryRes = await pool.query(
@@ -100,5 +88,5 @@ app.get('/download', async(req, res) => {
 })
 
 app.listen(port, () => {
-    console.log(`Listing on port ${port}`);
+    console.log(`Listening on port ${port}`);
 })
