@@ -16,10 +16,29 @@ app.get('', (req, res) => {
     res.send("Conectado exitosamente")
 })
 
-app.post('/insert', async(req, res) => {
+app.get('/record', async(req, res) => {
+    const pool = new Pool({
+        host: process.env.PGHOST,
+        port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
+        user: process.env.PGUSER,
+        password: process.env.PGPASSWORD,
+        database: process.env.PGDATABASE
+    });
+
     try {
-        console.log('Prepool');
-        
+        const queryRes = await pool.query(
+            'SELECT date, concept, category, description, value, create_time FROM "record" ORDER BY create_time DESC'
+        );
+        res.status(200).json(queryRes.rows);
+    } catch (e) {
+        res.status(500).json(e);
+    } finally {
+        await pool.end();
+    }
+})
+
+app.post('/insert', async(req, res) => {
+    try {        
         const {date, concept, category, description, value} = req.body
         const pool = new Pool({
             host: process.env.PGHOST,
