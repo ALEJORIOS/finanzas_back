@@ -23,7 +23,7 @@ app.get('/record', async(req, res) => {
 
     try {
         const queryRes = await pool.query(
-            'SELECT date, concept, category, description, value, create_time FROM "record" ORDER BY create_time DESC'
+            'SELECT date, concept, category, description, value, create_time FROM "record" ORDER BY date DESC'
         );
         res.status(200).json(queryRes.rows);
     } catch (e) {
