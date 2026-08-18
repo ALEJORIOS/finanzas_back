@@ -1,7 +1,7 @@
-import { createApp } from './src/app.ts';
-import { ensureReady } from './src/boot.ts';
-import { env } from './src/config/env.ts';
-import { closeDb } from './src/db/driver.ts';
+import { createApp } from './app.ts';
+import { ensureReady } from './boot.ts';
+import { env } from './config/env.ts';
+import { closeDb } from './db/driver.ts';
 
 // The app is created at module load so a serverless platform can import it
 // directly. Everything that touches the database happens lazily, on the first

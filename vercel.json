@@ -1,8 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "bunVersion": "1.x",
+  "buildCommand": "bun run build",
   "functions": {
-    "index.ts": {
+    "index.js": {
       "includeFiles": "node_modules/pdfkit/js/data/**"
     }
   }

@@ -26,8 +26,9 @@ bun run typecheck
 
 ## Deploying to Vercel
 
-`vercel.json` serves every route from `index.ts`, which exports the Express app
-instead of listening on a port. Two things to know:
+`vercel.json` runs `bun run build` (bundles `src/main.ts` into a standalone
+`index.js` with `bun build`) and serves every route from that bundle, which
+exports the Express app instead of listening on a port. Two things to know:
 
 - Set `DATABASE_URL` in the project's environment variables. Booting without it
   fails immediately with a clear message.
@@ -135,8 +136,8 @@ leak — they are logged with a request id that the response echoes back.
 ## Layout
 
 ```
-index.ts              exports the Express app; listens only outside serverless
 src/
+  main.ts             exports the Express app; listens only outside serverless
   boot.ts             one-time init (schema introspection, optional migrations)
   config/env.ts       validated configuration
   db/                 pg driver, introspection, migrations

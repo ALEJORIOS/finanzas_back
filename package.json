@@ -1,12 +1,13 @@
 {
   "name": "engine",
-  "module": "index.ts",
+  "module": "src/main.ts",
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "bun run index.ts",
-    "dev": "bun --watch index.ts",
-    "start:node": "node index.ts",
+    "start": "bun run src/main.ts",
+    "dev": "bun --watch src/main.ts",
+    "start:node": "node src/main.ts",
+    "build": "bun build ./src/main.ts --outfile index.js --target bun --format esm --packages=external",
     "typecheck": "tsc --noEmit",
     "smoke": "bun run scripts/smoke.ts",
     "migrate": "bun run scripts/migrate.ts",
