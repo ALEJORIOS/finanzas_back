@@ -4,13 +4,20 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "bun run index.ts"
+    "start": "bun run index.ts",
+    "dev": "bun --watch index.ts",
+    "start:node": "node index.ts",
+    "typecheck": "tsc --noEmit",
+    "smoke": "bun run scripts/smoke.ts",
+    "migrate:money": "bun run scripts/migrate-money-to-numeric.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@electric-sql/pglite": "^0.5.5",
+    "@types/bun": "latest",
+    "@types/pdfkit": "^0.17.6"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "@types/cors": "^2.8.19",
@@ -20,6 +27,8 @@
     "dotenv": "^17.2.3",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
-    "pg": "^8.16.3"
+    "pdfkit": "^0.19.1",
+    "pg": "^8.16.3",
+    "zod": "^4.4.3"
   }
 }

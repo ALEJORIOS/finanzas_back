@@ -1,92 +1,47 @@
-import express from 'express'
-import dotenv from 'dotenv'
-import { Pool } from 'pg'
-import cors from "cors";
-import ExcelJS from 'exceljs';
+import { createApp } from './src/app.ts';
+import { env } from './src/config/env.ts';
+import { closeDb, db } from './src/db/driver.ts';
+import { runMigrations } from './src/db/migrations.ts';
+import { seedDemoData } from './src/db/seed.ts';
 
-const app = express()
-const port = process.env.PORT || 3210;
+async function bootstrap() {
+  console.log(`[boot] starting in ${env.nodeEnv} mode`);
 
-dotenv.config()
+  // Schema work happens before the server accepts traffic, so no request can
+  // ever hit a half-migrated database.
+  await runMigrations();
 
-app.use(express.json());
-app.use(cors());
+  if (env.usePglite && env.seedLocal) {
+    await seedDemoData();
+  }
 
-app.get('', (req, res) => {
-    res.send("Conectado exitosamente")
-})
+  if (!env.apiKey) {
+    console.warn(
+      '[security] API_KEY is not set — every endpoint is publicly writable. ' +
+        'Set API_KEY (and PROTECT_READS=true) to require a token.'
+    );
+  }
 
-app.get('/record', async(req, res) => {
-    const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-    })
+  const app = createApp();
+  const server = app.listen(env.port, () => {
+    console.log(`[boot] listening on http://localhost:${env.port} (driver: ${db().kind})`);
+  });
 
-    try {
-        const queryRes = await pool.query(
-            'SELECT date, concept, category, description, value, create_time FROM "record" ORDER BY date DESC'
-        );
-        res.status(200).json(queryRes.rows);
-    } catch (e) {
-        res.status(500).json(e);
-    } finally {
-        await pool.end();
-    }
-})
+  const shutdown = async (signal: string) => {
+    console.log(`[boot] ${signal} received, shutting down`);
+    server.close(async () => {
+      await closeDb();
+      process.exit(0);
+    });
+    // Do not hang forever if a connection refuses to drain.
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
 
-app.post('/insert', async(req, res) => {
-    try {        
-        const {date, concept, category, description, value} = req.body
-        const pool = new Pool({
-            connectionString: process.env.DATABASE_URL,
-        })      
-        
-        const queryRes = await pool.query('INSERT INTO "record" (date, concept, category, description, value, create_time) VALUES($1, $2, $3, $4, $5, $6) RETURNING id', 
-            [date, concept, category, description, value, 'NOW()']);
-        
-        await pool.end()        
-        res.status(200).json({id: queryRes.rows[0].id})
-    }catch(e) {
-        res.status(500).json(e)
-    }
-})
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+}
 
-app.get('/download', async(req, res) => {
-    const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-    })
-
-    try {
-        const queryRes = await pool.query(
-            'SELECT date, concept, category, description, value, create_time FROM "record" ORDER BY create_time DESC'
-        );
-
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('records');
-
-        worksheet.columns = [
-            { header: 'date', key: 'date', width: 16 },
-            { header: 'concept', key: 'concept', width: 24 },
-            { header: 'category', key: 'category', width: 20 },
-            { header: 'description', key: 'description', width: 36 },
-            { header: 'value', key: 'value', width: 14 },
-            { header: 'create_time', key: 'create_time', width: 24 }
-        ];
-
-        worksheet.addRows(queryRes.rows);
-
-        const content = await workbook.xlsx.writeBuffer();
-        const fileName = `records-${new Date().toISOString().slice(0, 10)}.xlsx`;
-
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-        res.status(200).send(Buffer.from(content));
-    } catch (e) {
-        res.status(500).json(e);
-    } finally {
-        await pool.end();
-    }
-})
-
-app.listen(port, () => {
-    console.log(`Listening on port ${port}`);
-})
+bootstrap().catch((error) => {
+  console.error('[boot] failed to start:', error);
+  process.exit(1);
+});
