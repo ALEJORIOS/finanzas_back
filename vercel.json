@@ -1,18 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "builds": [
-    {
-      "src": "index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["node_modules/pdfkit/js/data/**"]
-      }
+  "functions": {
+    "index.ts": {
+      "includeFiles": "node_modules/pdfkit/js/data/**"
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "index.ts"
-    }
-  ]
+  }
 }
