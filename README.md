@@ -5,50 +5,51 @@ analytics and report exports (PDF / Excel / CSV).
 
 ## Running
 
+The API always talks to a real Postgres database — there is no embedded or
+on-disk fallback, so it runs unchanged on a serverless platform.
+
 ```bash
 bun install
 
-# Local development — no database setup needed.
-# With no DATABASE_URL the API boots an embedded Postgres (PGlite) into
-# ./.data/pglite and seeds ~460 demo records so every screen has data.
-bun run start          # or: bun run dev  (watch mode)
-
-# Against the real database
-DATABASE_URL=postgres://… bun run start
+# DATABASE_URL is required; put it in .env for local runs.
+DATABASE_URL=postgres://… bun run start     # or: bun run dev  (watch mode)
 ```
 
-Runs on both Bun and Node (`bun run start:node`). One caveat: PGlite's
-**in-memory** mode (`PGLITE_DIR=memory`) fails under Bun, so keep the default
-on-disk directory there — or use Node if you want a throwaway database.
-
-To start over from a clean database, delete the folder:
-
-```bash
-rm -rf .data          # PowerShell: Remove-Item -Recurse -Force .data
-```
+Runs on both Bun and Node (`bun run start:node`).
 
 Verify a running instance end to end:
 
 ```bash
-BASE_URL=http://localhost:3210 npm run smoke   # 130 assertions
-npm run typecheck
+BASE_URL=http://localhost:3210 bun run smoke   # 130 assertions
+bun run typecheck
 ```
+
+## Deploying to Vercel
+
+`vercel.json` serves every route from `index.ts`, which exports the Express app
+instead of listening on a port. Two things to know:
+
+- Set `DATABASE_URL` in the project's environment variables. Booting without it
+  fails immediately with a clear message.
+- Migrations do **not** run on a deployment (see `RUN_MIGRATIONS` below). After a
+  schema change, apply them once from your machine:
+  `DATABASE_URL=<production url> bun run migrate`.
 
 ## Configuration
 
-Everything is optional except `DATABASE_URL` in production.
+`DATABASE_URL` is required; everything else is optional.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DATABASE_URL` | — | Postgres connection string. Absent ⇒ local PGlite. |
-| `PORT` | `3210` | HTTP port. |
+| `DATABASE_URL` | — | **Required.** Postgres connection string. |
+| `PORT` | `3210` | HTTP port (ignored on Vercel). |
+| `RUN_MIGRATIONS` | `true` locally, `false` on Vercel | Apply migrations at boot. Off in serverless so a cold start stays fast and concurrent instances don't race the same DDL. |
 | `API_KEY` | — | **Unset ⇒ the API is fully public.** When set, mutations require `Authorization: Bearer <key>` or `X-API-Key`. |
 | `PROTECT_READS` | `false` | Also require the key on `GET`. |
 | `CORS_ORIGINS` | *(any)* | Comma-separated allowlist. |
 | `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` | `300` / `60000` | In-process rate limit. |
 | `CURRENCY` / `LOCALE` | `COP` / `es-CO` | Formatting in generated reports. |
-| `PG_POOL_MAX` | `10` | Connection pool size. |
-| `SEED_LOCAL` | `true` | Seed demo data on an empty local database. |
+| `PG_POOL_MAX` | `10` (`1` on Vercel) | Connection pool size. One connection per serverless instance keeps the database from running out. |
 
 ### Security
 
@@ -74,17 +75,17 @@ always deals in plain numbers and works before *or* after a type change.
 Converting to `numeric(16,2)` is recommended but entirely opt-in:
 
 ```bash
-node scripts/migrate-money-to-numeric.ts --dry-run   # inspect
-node scripts/migrate-money-to-numeric.ts --apply     # convert (verifies a checksum)
+bun run migrate:money -- --dry-run   # inspect
+bun run migrate:money -- --apply     # convert (verifies a checksum)
 ```
 
 Take a backup first. Nothing runs it automatically.
 
 ## Schema
 
-Migrations run automatically at boot and are **idempotent and additive** — no
-column is dropped or retyped, so pointing this at the existing production
-database only adds what is missing.
+Migrations are **idempotent and additive** — no column is dropped or retyped, so
+pointing this at the existing production database only adds what is missing.
+They run at boot locally and on demand (`bun run migrate`) everywhere else.
 
 - `record` — unchanged, plus `account_id`, `updated_at`, `pending`.
 - `category` — name, kind, colour, icon, archived. Joined to records **by name**,
@@ -134,14 +135,15 @@ leak — they are logged with a request id that the response echoes back.
 ## Layout
 
 ```
-index.ts              bootstrap: migrate → seed → listen
+index.ts              exports the Express app; listens only outside serverless
 src/
+  boot.ts             one-time init (schema introspection, optional migrations)
   config/env.ts       validated configuration
-  db/                 driver (pg | PGlite), introspection, migrations, seed
+  db/                 pg driver, introspection, migrations
   lib/                errors, money parsing, date/period maths, zod schemas
   middleware/         request id, logging, auth, rate limit, error handler
   repositories/       all SQL — records, categories, accounts, budgets, analytics
   routes/             HTTP layer (thin), plus legacy.ts
   services/           excel, pdf, csv generation
-scripts/              smoke.ts, migrate-money-to-numeric.ts
+scripts/              smoke.ts, migrate.ts, migrate-money-to-numeric.ts
 ```

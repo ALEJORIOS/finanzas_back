@@ -21,26 +21,35 @@ function list(value: string | undefined): string[] {
 
 const databaseUrl = process.env.DATABASE_URL?.trim() || '';
 
-/**
- * When no DATABASE_URL is provided we fall back to PGlite (Postgres compiled to
- * WASM). That keeps `bun run dev` working with zero setup and gives the test
- * suite a real Postgres to run against instead of a mock.
- */
-const usePglite = bool(process.env.USE_PGLITE) || databaseUrl === '';
+if (!databaseUrl) {
+  // Failing here gives a readable message instead of a connection error deep
+  // inside the first query. The app has no local/embedded fallback: it always
+  // talks to the Postgres instance behind DATABASE_URL.
+  throw new Error(
+    'DATABASE_URL is not set. Configure it in .env locally and in the ' +
+      'project environment variables before deploying.'
+  );
+}
+
+/** True when running on Vercel (or any other serverless platform). */
+const isServerless = Boolean(process.env.VERCEL);
 
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   isProduction: process.env.NODE_ENV === 'production',
+  isServerless,
   port: int(process.env.PORT, 3210),
 
   databaseUrl,
-  usePglite,
-  /** Directory for the PGlite data files. `memory://` keeps it ephemeral. */
-  pgliteDir: process.env.PGLITE_DIR?.trim() || './.data/pglite',
-  /** Seed the local database with demo data on first boot. */
-  seedLocal: bool(process.env.SEED_LOCAL, true),
+  /**
+   * Schema migrations are DDL. Running them on every cold start would make a
+   * serverless invocation slow and let concurrent instances race each other,
+   * so there they are opt-in: run `bun run migrate` (or set RUN_MIGRATIONS=true
+   * once) after deploying a schema change.
+   */
+  runMigrations: bool(process.env.RUN_MIGRATIONS, !isServerless),
 
-  poolMax: int(process.env.PG_POOL_MAX, 10),
+  poolMax: int(process.env.PG_POOL_MAX, isServerless ? 1 : 10),
   poolIdleTimeoutMs: int(process.env.PG_POOL_IDLE_TIMEOUT_MS, 30_000),
   poolConnectionTimeoutMs: int(process.env.PG_POOL_CONNECTION_TIMEOUT_MS, 10_000),
   statementTimeoutMs: int(process.env.PG_STATEMENT_TIMEOUT_MS, 15_000),

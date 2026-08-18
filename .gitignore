@@ -6,7 +6,7 @@ out
 dist
 *.tgz
 
-# local PGlite database (development only)
+# leftover local database files from the old embedded driver — safe to delete
 .data
 
 # code coverage

@@ -26,7 +26,7 @@ async function main() {
     console.log('DRY RUN — pass --apply to perform the migration.\n');
   }
 
-  console.log(`Target: ${env.usePglite ? 'PGlite (local)' : 'DATABASE_URL'}\n`);
+  console.log(`Target: ${new URL(env.databaseUrl).host}\n`);
 
   const { rows: columns } = await db().query<{ udt_name: string }>(
     `SELECT udt_name FROM information_schema.columns

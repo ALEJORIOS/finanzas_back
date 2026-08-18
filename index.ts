@@ -1,44 +1,20 @@
 import { createApp } from './src/app.ts';
+import { ensureReady } from './src/boot.ts';
 import { env } from './src/config/env.ts';
-import { closeDb, db } from './src/db/driver.ts';
-import { runMigrations } from './src/db/migrations.ts';
-import { seedDemoData } from './src/db/seed.ts';
+import { closeDb } from './src/db/driver.ts';
 
-// 1. Instanciar la app fuera de bootstrap para exportarla
+// The app is created at module load so a serverless platform can import it
+// directly. Everything that touches the database happens lazily, on the first
+// request, through the ensureReady() middleware inside createApp().
 const app = createApp();
 
-let isInitialized = false;
-
-// 2. Función de inicialización asíncrona (migraciones y semillas)
-async function init() {
-  if (isInitialized) return;
-
-  console.log(`[boot] starting in ${env.nodeEnv} mode`);
-
-  await runMigrations();
-
-  if (env.usePglite && env.seedLocal) {
-    await seedDemoData();
-  }
-
-  if (!env.apiKey) {
-    console.warn(
-      '[security] API_KEY is not set — every endpoint is publicly writable. ' +
-        'Set API_KEY (and PROTECT_READS=true) to require a token.'
-    );
-  }
-
-  isInitialized = true;
-}
-
-// 3. Ejecución local tradicional (solo fuera de producción/Vercel)
-if (process.env.VERCEL !== '1') {
-  init()
+// Only a long-lived process opens a port; on Vercel the platform owns the
+// server and just invokes the exported handler.
+if (!env.isServerless) {
+  ensureReady()
     .then(() => {
       const server = app.listen(env.port, () => {
-        console.log(
-          `[boot] listening on http://localhost:${env.port} (driver: ${db().kind})`
-        );
+        console.log(`[boot] listening on http://localhost:${env.port}`);
       });
 
       const shutdown = async (signal: string) => {
@@ -57,17 +33,6 @@ if (process.env.VERCEL !== '1') {
       console.error('[boot] failed to start:', error);
       process.exit(1);
     });
-} else {
-  // En Vercel, se inicializan la base de datos y migraciones en la primera petición
-  app.use(async (_req, _res, next) => {
-    try {
-      await init();
-      next();
-    } catch (err) {
-      next(err);
-    }
-  });
 }
 
-// 4. Exportar la instancia de la aplicación
 export default app;

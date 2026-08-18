@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { env } from './config/env.ts';
+import { ensureReady } from './boot.ts';
 import {
   authenticate,
   errorHandler,
@@ -45,6 +46,7 @@ export function createApp() {
 
   app.get('/health', async (_req, res) => {
     try {
+      await ensureReady();
       await db().query('SELECT 1');
       res.json({
         status: 'ok',
@@ -56,6 +58,13 @@ export function createApp() {
     } catch (error) {
       res.status(503).json({ status: 'degraded', message: 'Base de datos no disponible.' });
     }
+  });
+
+  // Schema introspection (and, when enabled, migrations) has to finish before
+  // any data handler runs. On a serverless platform there is no boot phase, so
+  // the first request pays for it and every later one reuses the same promise.
+  app.use((_req, _res, next) => {
+    ensureReady().then(() => next(), next);
   });
 
   app.use(authenticate);
