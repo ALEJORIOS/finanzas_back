@@ -19,9 +19,14 @@ import {
 
 export const recordsRouter = Router();
 
-function idParam(raw: string | undefined): number {
-  const id = Number.parseInt(raw ?? '', 10);
-  if (!Number.isInteger(id) || id <= 0) throw AppError.badRequest('Identificador inválido.');
+function idParam(raw: string | string[] | undefined): number {
+  const value = Array.isArray(raw) ? undefined : raw;
+  const id = Number.parseInt(value ?? '', 10);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw AppError.badRequest('Identificador inválido.');
+  }
+
   return id;
 }
 
