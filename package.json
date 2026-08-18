@@ -14,10 +14,8 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.5",
     "@types/bun": "latest",
-    "@types/pdfkit": "^0.17.6"
-  },
-  "peerDependencies": {
-    "typescript": "^7.0.2"
+    "@types/pdfkit": "^0.17.6",
+    "typescript": "^5.7.3"
   },
   "dependencies": {
     "@types/cors": "^2.8.19",
